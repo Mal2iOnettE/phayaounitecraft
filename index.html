@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
+        <h3>กำลังพาไปหน้าลงทะเบียน...</h3>
+        <p id="debug-log" style="color: gray; font-size: 12px;"></p>
+    </div>
+
+    <script>
+        const log = (msg) => { document.getElementById('debug-log').innerText += "\n" + msg; };
+
+        async function main() {
+            try {
+                // 1. เริ่มต้น LIFF (ใส่ ID เดิมของคุณ)
+                await liff.init({ liffId: "2008782558-90JkUWGA" });
+
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    // 2. ดึง Profile
+                    const profile = await liff.getProfile();
+                    const userId = profile.userId;
+
+                    // 3. ไปที่ Google Form ของคุณ
+                    const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw/viewform?usp=pp_url&entry.1816492590=" + userId;
+                    
+                    window.location.replace(formUrl);
+                }
+            } catch (err) {
+                log("Error: " + err.message);
+            }
+        }
+        main();
+    </script>
+</body>
+</html>
