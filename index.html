@@ -7,33 +7,48 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
-        <h3>กำลังพาไปหน้าลงทะเบียน...</h3>
-        <p id="debug-log" style="color: gray; font-size: 12px;"></p>
+    <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+        <h2 id="msg">กำลังตรวจสอบสิทธิ์...</h2>
+        <p id="debug-info" style="color: gray;"></p>
     </div>
 
     <script>
-        const log = (msg) => { document.getElementById('debug-log').innerText += "\n" + msg; };
+        const msgEl = document.getElementById('msg');
+        const debugEl = document.getElementById('debug-info');
 
         async function main() {
             try {
-                // 1. เริ่มต้น LIFF (ใส่ ID เดิมของคุณ)
+                // 1. เริ่มต้น LIFF
                 await liff.init({ liffId: "2008782558-90JkUWGA" });
 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
                     // 2. ดึง Profile
+                    msgEl.innerText = "กำลังดึงข้อมูลผู้ใช้งาน...";
                     const profile = await liff.getProfile();
                     const userId = profile.userId;
-
-                    // 3. ไปที่ Google Form ของคุณ
-                    const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw/viewform?usp=pp_url&entry.1816492590=" + userId;
                     
-                    window.location.replace(formUrl);
+                    if (userId) {
+                        debugEl.innerText = "พบ ID: " + userId;
+                        
+                        // 3. ประกอบลิงก์ (ตรวจสอบเลข entry.1816492590 ให้ดีอีกครั้ง)
+                        const baseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw/viewform?usp=pp_url&entry.1816492590=";
+                        const finalUrl = baseUrl + userId;
+                        
+                        msgEl.innerText = "กำลังพาคุณไปหน้าลงทะเบียน...";
+                        
+                        // หน่วงเวลา 1 วินาทีเพื่อให้แน่ใจว่าทำงานจบขั้นตอน
+                        setTimeout(() => {
+                            window.location.replace(finalUrl);
+                        }, 1000);
+                    } else {
+                        msgEl.innerText = "❌ ไม่สามารถดึง User ID ได้ กรุณาลองใหม่";
+                    }
                 }
             } catch (err) {
-                log("Error: " + err.message);
+                msgEl.innerText = "❌ เกิดข้อผิดพลาด";
+                debugEl.innerText = err.message;
             }
         }
         main();
