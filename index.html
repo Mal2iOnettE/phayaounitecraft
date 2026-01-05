@@ -15,6 +15,17 @@
     <script>
         const msgEl = document.getElementById('msg');
         const debugEl = document.getElementById('debug-info');
+        // เปลี่ยนบรรทัดประกอบลิงก์ให้เป็นแบบนี้
+        const entryId = "entry.1816492590"; // *** เปลี่ยนเลขนี้ให้ตรงกับที่คุณหาได้จากข้อ 1 ***
+        const formId = "1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw";
+        const finalUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url&${entryId}=${userId}`;
+        
+        msgEl.innerText = "พบ ID: " + userId + " กำลังเตรียมแบบฟอร์ม...";
+        
+        // ใช้ window.location.assign เพื่อให้มั่นใจว่าพารามิเตอร์ URL ติดไปด้วย
+        setTimeout(() => {
+            window.location.assign(finalUrl);
+        }, 500);
 
         async function main() {
             try {
