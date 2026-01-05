@@ -1,68 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting...</title>
+    <title>Checking...</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
     <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
         <h2 id="msg">กำลังตรวจสอบสิทธิ์...</h2>
-        <p id="debug-info" style="color: gray;"></p>
+        <p id="err-log" style="color: red;"></p>
     </div>
 
     <script>
-        const msgEl = document.getElementById('msg');
-        const debugEl = document.getElementById('debug-info');
-        // เปลี่ยนบรรทัดประกอบลิงก์ให้เป็นแบบนี้
-        const entryId = "entry.1816492590"; // *** เปลี่ยนเลขนี้ให้ตรงกับที่คุณหาได้จากข้อ 1 ***
-        const formId = "1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw";
-        const finalUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url&${entryId}=${userId}`;
-        
-        msgEl.innerText = "พบ ID: " + userId + " กำลังเตรียมแบบฟอร์ม...";
-        
-        // ใช้ window.location.assign เพื่อให้มั่นใจว่าพารามิเตอร์ URL ติดไปด้วย
-        setTimeout(() => {
-            window.location.assign(finalUrl);
-        }, 500);
-
-        async function main() {
+        async function runLiff() {
+            const msg = document.getElementById('msg');
+            const errLog = document.getElementById('err-log');
+            
             try {
-                // 1. เริ่มต้น LIFF
+                // ขั้นตอนที่ 1: Init
+                msg.innerText = "กำลังเชื่อมต่อ LINE SDK...";
                 await liff.init({ liffId: "2008782558-90JkUWGA" });
-
+                
+                // ขั้นตอนที่ 2: Login
                 if (!liff.isLoggedIn()) {
+                    msg.innerText = "กรุณารอ... กำลังพาไปหน้า Login";
                     liff.login();
-                } else {
-                    // 2. ดึง Profile
-                    msgEl.innerText = "กำลังดึงข้อมูลผู้ใช้งาน...";
-                    const profile = await liff.getProfile();
-                    const userId = profile.userId;
-                    
-                    if (userId) {
-                        debugEl.innerText = "พบ ID: " + userId;
-                        
-                        // 3. ประกอบลิงก์ (ตรวจสอบเลข entry.1816492590 ให้ดีอีกครั้ง)
-                        const baseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw/viewform?usp=pp_url&entry.1816492590=";
-                        const finalUrl = baseUrl + userId;
-                        
-                        msgEl.innerText = "กำลังพาคุณไปหน้าลงทะเบียน...";
-                        
-                        // หน่วงเวลา 1 วินาทีเพื่อให้แน่ใจว่าทำงานจบขั้นตอน
-                        setTimeout(() => {
-                            window.location.replace(finalUrl);
-                        }, 1000);
-                    } else {
-                        msgEl.innerText = "❌ ไม่สามารถดึง User ID ได้ กรุณาลองใหม่";
-                    }
+                    return;
                 }
-            } catch (err) {
-                msgEl.innerText = "❌ เกิดข้อผิดพลาด";
-                debugEl.innerText = err.message;
+                
+                // ขั้นตอนที่ 3: ดึงข้อมูล Profile
+                msg.innerText = "กำลังดึงข้อมูล User ID...";
+                const profile = await liff.getProfile();
+                const userId = profile.userId;
+                
+                if (userId) {
+                    const formId = "1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw";
+                    const entryId = "entry.1816492590"; // มั่นใจว่าเลขนี้ถูกต้องตามวิธี Pre-filled link
+                    const finalUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url&${entryId}=${userId}`;
+                    
+                    msg.innerText = "สำเร็จ! กำลังไปที่หน้าแบบฟอร์ม...";
+                    window.location.replace(finalUrl);
+                }
+            } catch (error) {
+                msg.innerText = "❌ เกิดข้อผิดพลาด";
+                errLog.innerText = error.code + " : " + error.message;
             }
         }
-        main();
+        runLiff();
     </script>
 </body>
 </html>
