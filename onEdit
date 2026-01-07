@@ -1,0 +1,104 @@
+
+function onEdit(e) {
+  // --- CONFIGURATION ---
+  const LINE_ACCESS_TOKEN = '7QiU+JAQ31YiRRrn3IIsMKDAg6k/AA4txzcj2+bPtmaZKIuXPWpjnW9OQfZgyZN8r7l3jAG4eTuge9+A0SJCWSxwt5C53TqgcLSJYPbTtOJGJH58vX1YghzHhJRqzpwT8HzJsMN2qNld9OHCimx1QAdB04t89/1O/w1cDnyilFU='; // ใส่ Channel Access Token จาก LINE Developers
+  const FORM_SHEET_NAME = 'Orders'; // ชื่อ Sheet ที่รับข้อมูลจาก Form
+
+  const sheet = e.source.getActiveSheet();
+  const range = e.range;
+  const row = range.getRow();
+  const col = range.getColumn();
+
+  // ตรวจสอบว่าแก้ไขใน Sheet ที่ถูกต้อง และเป็นการแก้ใน Column "สถานะชำระเงิน" (สมมติว่าเป็น Col 7)
+  // และค่าที่แก้คือ "ชำระเงินแล้ว"
+  if (sheet.getName() === FORM_SHEET_NAME && col === 7 && e.value === "ชำระเงินแล้ว") {
+    processTicket(sheet, row);
+  }
+}
+
+function processTicket(sheet, row) {
+  try {
+    const data = sheet.getRange(row, 1, 1, 15).getValues()[0];
+
+    const userName = data[1];        // คอลัมน์ B
+    const ticketQty = parseInt(data[2]); // คอลัมน์ C: จำนวนที่ซื้อ
+    const startIndex = parseInt(data[10]); // คอลัมน์ K: Number Index (Index 10 คือ คอลัมน์ K)
+    const lineUserId = data[11];     // คอลัมน์ L
+
+    // ตรวจสอบว่าคอลัมน์ K มีตัวเลขหรือไม่
+    if (isNaN(startIndex)) {
+      console.error("ไม่พบหมายเลขลำดับในคอลัมน์ K");
+      return;
+    }
+
+    let ticketIds = [];
+    let qrCodes = [];
+
+    for (let i = 0; i < ticketQty; i++) {
+      // นำ startIndex มาบวกเพิ่มตามลำดับรอบของ Loop
+      let currentNumber = startIndex + i;
+
+      // แปลงตัวเลขให้เป็น 5 หลัก (Pad Zero) เช่น 1 -> 00001
+      let formattedNumber = currentNumber.toString().padStart(5, '0');
+
+      // สร้าง Ticket ID: PUC2-00001
+      let tId = "PUC2-" + formattedNumber;
+
+      ticketIds.push(tId);
+      qrCodes.push("https://quickchart.io/qr?text=" + encodeURIComponent(tId));
+    }
+
+    // บันทึกกลับลง Sheet และส่ง LINE ตามเดิม
+    sheet.getRange(row, 8).setValue(ticketIds.join(", ")); // Col H
+    sheet.getRange(row, 9).setValue(qrCodes.join("\n"));   // Col I
+
+    sendLineFlex(lineUserId, userName, ticketIds, qrCodes);
+
+  } catch (err) {
+    console.error("Error: " + err.message);
+  }
+}
+function sendLineFlex(userId, name, ticketIds, qrCodes) {
+  const url = 'https://api.line.me/v2/bot/message/push';
+
+  // สร้าง Bubble สำหรับตั๋วแต่ละใบ (Flex Message)
+  let bubbles = ticketIds.map((id, index) => {
+    return {
+      "type": "bubble",
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          { "type": "text", "text": "TICKET CONFIRMED", "weight": "bold", "color": "#1DB446", "size": "sm" },
+          { "type": "text", "text": "คุณ" + name, "weight": "bold", "size": "xl", "margin": "md" },
+          { "type": "text", "text": " --- นำ QR Code นี้มาแสดงเพื่อเข้างาน ---", "weight": "normal", "size": "m", "margin": "md" },
+          { "type": "image", "url": qrCodes[index], "size": "full", "aspectMode": "cover", "aspectRatio": "1:1", "margin": "md" },
+          { "type": "text", "text": "ID: " + id, "size": "xs", "color": "#aaaaaa", "align": "center", "margin": "sm" }
+        ]
+      }
+    };
+  });
+
+  const payload = {
+    "to": userId,
+    "messages": [{
+      "type": "flex",
+      "altText": "คุณได้รับตั๋วเข้างานแล้ว",
+      "contents": {
+        "type": "carousel",
+        "contents": bubbles
+      }
+    }]
+  };
+
+  const options = {
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + LINE_ACCESS_TOKEN
+    },
+    "payload": JSON.stringify(payload)
+  };
+
+  UrlFetchApp.fetch(url, options);
+}
