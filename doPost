@@ -1,0 +1,152 @@
+// --- CONFIGURATION ---
+const LINE_ACCESS_TOKEN = '7QiU+JAQ31YiRRrn3IIsMKDAg6k/AA4txzcj2+bPtmaZKIuXPWpjnW9OQfZgyZN8r7l3jAG4eTuge9+A0SJCWSxwt5C53TqgcLSJYPbTtOJGJH58vX1YghzHhJRqzpwT8HzJsMN2qNld9OHCimx1QAdB04t89/1O/w1cDnyilFU='; // ใส่ Channel Access Token จาก LINE Developers
+const FORM_SHEET_NAME = 'Orders'; // ชื่อ Sheet ที่รับข้อมูลจาก Form
+
+
+function doPost(e) {
+  // บรรทัดนี้จะตอบกลับ LINE ทันทีเพื่อให้ Verify ผ่าน (HTTP 200)
+  if (!e || !e.postData || !e.postData.contents) {
+    return ContentService.createTextOutput(JSON.stringify({content: "ok"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    const json = JSON.parse(e.postData.contents);
+    
+    // หากเป็นเพียงการกด Verify จากหน้า Console ให้รีบคืนค่า ok
+    if (json.events && json.events.length === 0) {
+      return ContentService.createTextOutput(JSON.stringify({content: "ok"}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const event = json.events[0];
+    const replyToken = event.replyToken;
+    const userId = event.source.userId;
+    const userMessage = (event.message.text || "").trim();
+
+    if (userMessage === "ดูตั๋วของฉัน") {
+      // เรียกใช้ฟังก์ชันค้นหาตั๋ว
+      findAndSendTicket(userId, replyToken);
+    }
+
+    // ต้องคืนค่า JSON เสมอเพื่อยืนยันสถานะ 200
+    return ContentService.createTextOutput(JSON.stringify({content: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    console.error("Error: " + err.message);
+    // แม้จะพัง ก็ต้องส่ง 200 กลับไป เพื่อเลี่ยง 302
+    return ContentService.createTextOutput(JSON.stringify({content: "error"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function findAndSendTicket(userId, replyToken) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(FORM_SHEET_NAME);
+
+  if (!sheet) {
+    console.error("หาชีตไม่เจอ");
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  let foundTickets = [];
+  let userName = "";
+
+  // ลูปเช็คข้อมูลทุกแถว
+  for (let i = 1; i < data.length; i++) {
+    const sheetUserId = String(data[i][11] || "").trim(); // คอลัมน์ L: lineUserId
+    const status = String(data[i][6] || "").trim();      // คอลัมน์ G: สถานะ
+
+    // เงื่อนไข: เช็ค UserID ตรงกัน และ สถานะต้องเป็น "ชำระเงินแล้ว"
+    if (sheetUserId === userId && status === "ชำระเงินแล้ว") {
+      userName = data[i][1]; // คอลัมน์ B: ชื่อ
+
+      const ticketIdsString = String(data[i][7] || ""); // คอลัมน์ H: Ticket ID
+      const qrUrlsString = String(data[i][8] || "");    // คอลัมน์ I: QR URL
+
+      if (ticketIdsString !== "") {
+        const ids = ticketIdsString.split(", ");
+        const qrs = qrUrlsString.split("\n");
+
+        ids.forEach((id, index) => {
+          if (id) {
+            foundTickets.push({
+              id: id,
+              qr: qrs[index] || ("https://quickchart.io/qr?text=" + encodeURIComponent(id))
+            });
+          }
+        });
+      }
+    }
+  }
+
+  // ส่งผลลัพธ์กลับหา User
+  if (foundTickets.length > 0) {
+    sendReplyFlex(replyToken, userName, foundTickets);
+  } else {
+    console.log("ไม่พบข้อมูลที่ตรงเงื่อนไขสำหรับ User: " + userId);
+    // กรณีไม่เจอข้อมูล หรือยังไม่ได้ยืนยันชำระเงิน
+    replyTextMessage(replyToken, "ไม่พบข้อมูลตั๋วที่ชำระเงินแล้วของคุณ หากเพิ่งชำระเงินกรุณารอแอดมินตรวจสอบสถานะครับ");
+  }
+}
+
+// ฟังก์ชันส่ง Flex Carousel
+function sendReplyFlex(replyToken, name, tickets) {
+  const url = 'https://api.line.me/v2/bot/message/reply';
+
+  // สร้าง Bubble สำหรับตั๋วแต่ละใบ (แสดงสูงสุด 10 ใบ)
+  let bubbles = tickets.slice(0, 10).map(t => {
+    return {
+      "type": "bubble",
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          { "type": "text", "text": "ตั๋วของคุณ", "weight": "bold", "color": "#1DB446", "size": "sm" },
+          { "type": "text", "text": name, "weight": "bold", "size": "xl", "margin": "md" },
+          { "type": "image", "url": t.qr, "size": "full", "aspectRatio": "1:1", "margin": "md" },
+          { "type": "text", "text": "ID: " + t.id, "size": "xs", "color": "#aaaaaa", "align": "center", "margin": "md" }
+        ]
+      }
+    };
+  });
+
+  const payload = {
+    "replyToken": replyToken,
+    "messages": [{
+      "type": "flex",
+      "altText": "ข้อมูลตั๋วของคุณ",
+      "contents": {
+        "type": "carousel",
+        "contents": bubbles
+      }
+    }]
+  };
+
+  UrlFetchApp.fetch(url, {
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + LINE_ACCESS_TOKEN
+    },
+    "payload": JSON.stringify(payload)
+  });
+}
+
+function replyTextMessage(replyToken, text) {
+  const url = 'https://api.line.me/v2/bot/message/reply';
+  const payload = {
+    "replyToken": replyToken,
+    "messages": [{ "type": "text", "text": text }]
+  };
+  UrlFetchApp.fetch(url, {
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + LINE_ACCESS_TOKEN
+    },
+    "payload": JSON.stringify(payload)
+  });
+}
