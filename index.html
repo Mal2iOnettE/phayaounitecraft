@@ -33,10 +33,10 @@
                 msg.innerText = "กำลังดึงข้อมูล User ID...";
                 const profile = await liff.getProfile();
                 const userId = profile.userId;
-                
+                https://docs.google.com/forms/d/e/1FAIpQLSejp6s2Cv4pRYOq0QYqWAdWM8U27-hlwoeGKMVQh2uSFwnKyg/viewform?usp=dialog
                 if (userId) {
-                    const formId = "1FAIpQLSegvhv_7CDNTzNW08MRjufVKyGax5KFZD8uLGeBnzxntpSvgw";
-                    const entryId = "entry.1816492590"; // มั่นใจว่าเลขนี้ถูกต้องตามวิธี Pre-filled link
+                    const formId = "1FAIpQLSejp6s2Cv4pRYOq0QYqWAdWM8U27-hlwoeGKMVQh2uSFwnKyg";
+                    const entryId = "entry.1515544011"; // มั่นใจว่าเลขนี้ถูกต้องตามวิธี Pre-filled link
                     const finalUrl = `https://docs.google.com/forms/d/e/${formId}/viewform?usp=pp_url&${entryId}=${userId}`;
                     
                     msg.innerText = "สำเร็จ! กำลังไปที่หน้าแบบฟอร์ม...";
